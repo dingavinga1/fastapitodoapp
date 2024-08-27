@@ -3,21 +3,20 @@ version: '3.9'
 services:
   db:
     image: postgres:15
-    container_name: fastapi_postgres_db
+    container_name: ${DB_HOST}
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASS}
       POSTGRES_DB: ${DB_NAME}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - ${DB_PORT}:5432
 
   backend:
     image: python:3.12
     container_name: fastapi_backend
     command: >
-      /bin/sh -c "pip install -r requirements.txt &&
+      /bin/sh -c "chmod +x wait-for-it.sh && ./wait-for-it.sh db:5432 &&
+                  pip install -r requirements.txt &&
                   alembic upgrade head &&
                   uvicorn rest.app:app --host 0.0.0.0 --port 8090"
     env_file:
