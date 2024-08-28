@@ -10,24 +10,37 @@ services:
       POSTGRES_DB: ${DB_NAME}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d clean_todo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  backend:
-    image: python:3.12
-    container_name: fastapi_backend
-    command: >
-      /bin/sh -c "chmod +x wait-for-it.sh && ./wait-for-it.sh db:5432 &&
-                  pip install -r requirements.txt &&
-                  alembic upgrade head &&
-                  uvicorn rest.app:app --host 0.0.0.0 --port 8090"
+  migrator:
+    build:
+      context: ./app
+      dockerfile: ./migrations/Dockerfile
     env_file:
-      - .env  # Load environment variables from the .env file
+      - ./app/.env
     environment:
-      CLEAN_ENV: PROD  # Additional environment variable
-    volumes:
-      - .:/app
-    working_dir: /app
+      CLEAN_ENV: PROD 
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+  
+  backend:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    env_file:
+      - ./app/.env
+    environment:
+      CLEAN_ENV: PROD 
+    depends_on:
+      db: 
+        condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
     ports:
       - "8090:8090"
 
