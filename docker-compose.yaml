@@ -1,0 +1,48 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgres:15
+    container_name: ${DB_HOST}
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d clean_todo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  migrator:
+    build:
+      context: ./app
+      dockerfile: ./migrations/Dockerfile
+    env_file:
+      - ./app/.env
+    environment:
+      CLEAN_ENV: PROD 
+    depends_on:
+      db:
+        condition: service_healthy
+  
+  backend:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    env_file:
+      - ./app/.env
+    environment:
+      CLEAN_ENV: PROD 
+    depends_on:
+      db: 
+        condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
+    ports:
+      - "8090:8090"
+
+volumes:
+  postgres_data:
